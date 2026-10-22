@@ -3,18 +3,19 @@ main.py
 
 Programa de exemplo que usa a biblioteca (graph.py, adjacency_list.py,
 adjacency_matrix.py, statistics_report.py) para:
-  1. Ler um grafo de um arquivo texto, na representação escolhida;
+  1. Ler um grafo (com ou sem pesos) de um arquivo texto, na representação escolhida;
   2. Escrever, em um único arquivo de saída (--saida): estatísticas do
-     grafo, tempos de execução, e (se pedidos) resultado de distância e
-     de diâmetro.
+     grafo, tempos de execução, e (se pedidos) resultado de distância,
+     de diâmetro e de caminho mínimo ponderado (Dijkstra).
   3. Opcionalmente, gerar a árvore de busca (BFS/DFS) em um arquivo
      separado, por ter formato tabular próprio.
 
 Uso:
     python main.py caminho/para/grafo.txt [--repr list|matrix] [--saida relatorio.txt]
 
-Exemplo:
-    python main.py grafos/grafo_1.txt --repr list --saida grafo_1_relatorio.txt --busca bfs --inicio 10 --distancia 10 20 --diametro exato
+Exemplos:
+    python main.py grafos/grafo_1.txt --repr list --saida grafo1_lista_relatorio.txt --busca bfs --inicio 1 --distancia 10 20 --diametro exato
+    python main.py grafos/grafo_W_1.txt --saida grafoW1.txt --caminho-minimo 10 20 --dijkstra heap
 """
 
 import argparse
@@ -52,11 +53,20 @@ def main():
     )
     parser.add_argument(
         "--distancia", type=int, nargs=2, metavar=("U", "V"), default=None,
-        help="Calcula a distância entre os vértices U e V.",
+        help="Calcula a distância (em número de arestas, ignora pesos) entre os vértices U e V.",
     )
     parser.add_argument(
         "--diametro", choices=["exato", "aprox"], default=None,
         help="Calcula o diâmetro do grafo (exato ou aproximado).",
+    )
+    parser.add_argument(
+        "--caminho-minimo", type=int, nargs=2, metavar=("U", "V"), default=None,
+        dest="caminho_minimo",
+        help="Calcula a distância e o caminho mínimo ponderado (Dijkstra) entre U e V.",
+    )
+    parser.add_argument(
+        "--dijkstra", choices=["heap", "vetor"], default="heap",
+        help="Implementação do Dijkstra usada em --caminho-minimo (padrão: heap).",
     )
     args = parser.parse_args()
 
@@ -65,8 +75,9 @@ def main():
     nome_grafo = os.path.splitext(os.path.basename(args.arquivo_entrada))[0]
 
     # Um único arquivo de saída (args.saida) recebe estatísticas, tempos de
-    # execução, distância e diâmetro. Só a árvore de busca (BFS/DFS) vai
-    # para um arquivo separado, por ter formato tabular próprio.
+    # execução, distância, diâmetro e caminho mínimo. Só a árvore de busca
+    # (BFS/DFS) vai para um arquivo separado, por ter formato tabular próprio.
+
     stats = GraphStatistics(grafo)
     print(stats.as_text())
     stats.write_to_file(args.saida)
@@ -87,7 +98,7 @@ def main():
         arquivo_busca = f"{nome_grafo}_{args.busca}.txt"
         grafo.write_search_tree(resultado, arquivo_busca)
         print(f"Árvore de {args.busca.upper()} escrita em: {arquivo_busca}")
-        print(f"Tempo de execução do {args.busca.upper()}: {tempo_gasto:.6f} segundos")
+        #print(f"Tempo de execução do {args.busca.upper()}: {tempo_gasto:.6f} segundos")
         stats.registrar_tempo(args.saida, f"{args.busca.upper()} (início={args.inicio})", tempo_gasto)
 
     if args.distancia is not None:
@@ -100,7 +111,19 @@ def main():
         stats.write_distance_report(u, v, d, args.saida)
         stats.registrar_tempo(args.saida, f"Distância({u},{v})", tempo_gasto)
         print(f"Distância entre {u} e {v} escrita em: {args.saida}")
-        print(f"Tempo de execução da distância: {tempo_gasto:.6f} segundos")
+
+    if args.caminho_minimo is not None:
+        u, v = args.caminho_minimo
+        usar_heap = args.dijkstra == "heap"
+        t0 = time.perf_counter()
+        d, caminho = grafo.shortest_path(u, v, use_heap=usar_heap)
+        t1 = time.perf_counter()
+        tempo_gasto = t1 - t0
+
+        stats.write_shortest_path_report(u, v, d, caminho, args.saida)
+        stats.registrar_tempo(args.saida, f"Caminho mínimo({u},{v}) [Dijkstra {args.dijkstra}]", tempo_gasto)
+        print(stats.shortest_path_text(u, v, d, caminho), end="")
+        print(f"Caminho mínimo entre {u} e {v} escrito em: {args.saida}")
 
     if args.diametro is not None:
         t0 = time.perf_counter()
@@ -114,7 +137,7 @@ def main():
         stats.write_diameter_report(d, args.diametro, args.saida)
         stats.registrar_tempo(args.saida, f"Diâmetro ({args.diametro})", tempo_gasto)
         print(f"Diâmetro escrito em: {args.saida}")
-        print(f"Tempo de execução do diâmetro ({args.diametro}): {tempo_gasto:.6f} segundos")
+        #print(f"Tempo de execução do diâmetro ({args.diametro}): {tempo_gasto:.6f} segundos")
 
 
 if __name__ == "__main__":
