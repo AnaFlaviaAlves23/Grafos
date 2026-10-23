@@ -112,7 +112,9 @@ def main():
         stats.registrar_tempo(args.saida, f"Distância({u},{v})", tempo_gasto)
         print(f"Distância entre {u} e {v} escrita em: {args.saida}")
 
-    if args.caminho_minimo is not None:
+    if args.caminho_minimo is not None and grafo.has_negative_weight:
+        print("O grafo possui pesos negativos: a biblioteca ainda não implementa caminhos mínimos nesse caso.")
+    elif args.caminho_minimo is not None:
         u, v = args.caminho_minimo
         usar_heap = args.dijkstra == "heap"
         t0 = time.perf_counter()

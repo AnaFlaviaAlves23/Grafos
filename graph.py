@@ -15,10 +15,12 @@ Grafos sem pesos continuam funcionando normalmente: toda aresta sem peso
 explícito recebe peso 1.0.
 """
 
-import heapq
 from abc import ABC, abstractmethod
 from collections import deque
 from typing import Dict, Iterator, List, Optional, Set, Tuple
+
+from dijkstra import dijkstra as run_dijkstra
+from distance_structures import HeapDistances, VectorDistances
 
 INF = float("inf")
 
@@ -302,69 +304,23 @@ class Graph(ABC):
 
     def dijkstra_vector(self, start: int) -> Dict:
         """
-        Dijkstra SEM heap: a cada iteração, o vértice não visitado de menor
-        distância é encontrado por varredura linear do vetor de distâncias.
-        Complexidade: O(n^2 + m).
+        Dijkstra SEM heap: estimativas de distância em um vetor, mínimo
+        achado por varredura linear. Complexidade: O(n^2 + m).
 
         Retorna {'dist': {v: distância}, 'parent': {v: pai}} apenas com os
         vértices alcançáveis a partir de start.
         """
-        self._check_dijkstra(start)
-        n = self.num_vertices
-        dist = [INF] * (n + 1)
-        parent: List[Optional[int]] = [None] * (n + 1)
-        done = [False] * (n + 1)
-        dist[start] = 0.0
-
-        for _ in range(n):
-            u = -1
-            melhor = INF
-            for v in range(1, n + 1):
-                if not done[v] and dist[v] < melhor:
-                    melhor = dist[v]
-                    u = v
-            if u == -1:  # restantes são inalcançáveis
-                break
-            done[u] = True
-            for w, peso in self.weighted_neighbors(u):
-                if not done[w]:
-                    nova = melhor + peso
-                    if nova < dist[w]:
-                        dist[w] = nova
-                        parent[w] = u
-
-        return self._pack_dijkstra(dist, parent)
+        return run_dijkstra(self, start, VectorDistances)
 
     def dijkstra_heap(self, start: int) -> Dict:
         """
-        Dijkstra COM heap (heapq, remoção preguiçosa de entradas obsoletas).
-        Complexidade: O((n + m) log n).
+        Dijkstra COM heap binário que permite diminuir a chave de um
+        vértice de forma eficiente (decrease-key). Complexidade: O((n + m) log n).
 
         Retorna {'dist': {v: distância}, 'parent': {v: pai}} apenas com os
         vértices alcançáveis a partir de start.
         """
-        self._check_dijkstra(start)
-        n = self.num_vertices
-        dist = [INF] * (n + 1)
-        parent: List[Optional[int]] = [None] * (n + 1)
-        done = [False] * (n + 1)
-        dist[start] = 0.0
-        heap: List[Tuple[float, int]] = [(0.0, start)]
-
-        while heap:
-            d, u = heapq.heappop(heap)
-            if done[u]:
-                continue
-            done[u] = True
-            for w, peso in self.weighted_neighbors(u):
-                if not done[w]:
-                    nova = d + peso
-                    if nova < dist[w]:
-                        dist[w] = nova
-                        parent[w] = u
-                        heapq.heappush(heap, (nova, w))
-
-        return self._pack_dijkstra(dist, parent)
+        return run_dijkstra(self, start, HeapDistances)
 
     def dijkstra(self, start: int, use_heap: bool = True) -> Dict:
         """Executa Dijkstra a partir de start, com heap (padrão) ou sem."""
